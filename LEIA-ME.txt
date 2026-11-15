@@ -1,0 +1,9 @@
+TATI CLARO NAILS — PARALLAX PLUS
+
+Como visualizar:
+1. Extraia o ZIP.
+2. Abra a pasta do projeto.
+3. Abra o arquivo index.html no navegador.
+
+A pasta assets contém as imagens utilizadas pelo site.
+As fontes do Google Fonts precisam de conexão com a internet.
