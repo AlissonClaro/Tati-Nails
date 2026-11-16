@@ -23,7 +23,7 @@ section{padding:105px 7%}.section-head{text-align:center;max-width:650px;margin:
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*:before,*:after{transition:none!important}}
 
 /* PARALLAX PLUS — camadas com velocidades diferentes durante a rolagem */
-.hero:before { transform: translate3d(0,var(--parallax,0px),0) scale(1.18); }
+.hero:before { transform:translate3d(0,var(--parallax,0px),0) scale(1.18); will-change:transform; }
 .about-photo { isolation:isolate; }
 .about-photo img {
   height:125%;
@@ -47,20 +47,6 @@ section{padding:105px 7%}.section-head{text-align:center;max-width:650px;margin:
 .comfort:before {
   transform:translate3d(0,var(--comfort-shift,0px),0) scale(1.12);
   will-change:transform;
-}
-/* entrada suave dos blocos conforme aparecem */
-.reveal-ready .section-head,
-.reveal-ready .about-copy,
-.reveal-ready .policy-item,
-.reveal-ready .service,
-.reveal-ready .gallery-grid figure {
-  opacity:0;
-  transform:translate3d(0,32px,0);
-  transition:opacity .8s ease, transform .8s cubic-bezier(.2,.7,.2,1);
-}
-.reveal-ready .is-visible {
-  opacity:1;
-  transform:translate3d(0,0,0);
 }
 @media(max-width:800px) {
   .gallery-grid img { height:290px; }
@@ -105,6 +91,16 @@ section{padding:105px 7%}.section-head{text-align:center;max-width:650px;margin:
 @media(prefers-reduced-motion:reduce){ .services .section-head h2,.services .section-head p,.service-copy h3,.service-copy .price-row,.service-copy .detail { transform:none!important; transition:none!important; } }
 </style>
 
+<style id="gsap-polish">
+/* GSAP controls movement; these rules keep clipping and rendering crisp. */
+.hero:before,.about-photo img,.service img,.service-copy,.gallery-grid img,.comfort:before { will-change:transform; }
+.service { border-radius:18px; }
+.service-copy { min-width:0; }
+.service .select-style { will-change:transform; }
+@media(prefers-reduced-motion:reduce) {
+  .hero:before,.about-photo img,.service img,.service-copy,.gallery-grid img,.comfort:before { will-change:auto; }
+}
+</style>
 <style id="rounded-photo-corners">
 /* Acabamento: cantos arredondados em todas as fotografias */
 .service img,
@@ -157,98 +153,107 @@ section{padding:105px 7%}.section-head{text-align:center;max-width:650px;margin:
 <section class="comfort"><div class="section-head"><div class="kicker" style="color:#c9bca9">Um espaço acolhedor</div><h2>Seu momento de relaxar.</h2><p>Foi preparado um cantinho aconchegante em casa para tornar seu atendimento confortável. Como o espaço é compacto e exclusivo, pedimos a gentileza de vir sem acompanhantes. Assim, garantimos foco, segurança e aquele momento de relaxamento que você merece para cuidar das suas unhas.</p></div></section>
 </main>
 <footer class="footer"><strong>Tati Claro Nails</strong><span>BELEZA EM CADA DETALHE</span><a href="#inicio">VOLTAR AO TOPO ↑</a></footer>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/gsap.min.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/ScrollTrigger.min.js" defer></script>
 <script>
+window.addEventListener('DOMContentLoaded', () => {
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const hasGSAP = typeof window.gsap !== 'undefined' && typeof window.ScrollTrigger !== 'undefined';
+  const whatsappNumber = '5514997584936';
 
-const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-const hero = document.querySelector('.hero');
-const about = document.querySelector('.about');
-const comfort = document.querySelector('.comfort');
-const serviceImages = [...document.querySelectorAll('.service img')];
-const galleryImages = [...document.querySelectorAll('.gallery-grid img')];
-const serviceCards = [...document.querySelectorAll('.service')];
-const serviceHead = document.querySelector('.services .section-head');
+  // Agendamento: cada botão abre uma conversa já preenchida com o serviço e o preço.
+  document.querySelectorAll('.select-style').forEach(link => {
+    const service = link.dataset.service || 'estilo escolhido';
+    const price = link.dataset.price || '';
+    const message = `Quero agendar um horário para este estilo: ${service}${price ? ` (valor: ${price})` : ''}.`;
+    link.href = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+  });
 
-if (!reduceMotion) {
-  document.body.classList.add('reveal-ready');
-  const revealItems = document.querySelectorAll(
-    '.section-head, .about-copy, .policy-item, .service, .gallery-grid figure'
+  document.querySelectorAll('.nav a').forEach(a =>
+    a.addEventListener('click', () => document.querySelector('.nav').classList.remove('open'))
   );
-  const revealObserver = new IntersectionObserver(entries => {
-    entries.forEach(entry => {
-      if (entry.isIntersecting) {
-        entry.target.classList.add('is-visible');
-        revealObserver.unobserve(entry.target);
-      }
-    });
-  }, { threshold: 0.12 });
-  revealItems.forEach(item => revealObserver.observe(item));
 
-  let ticking = false;
-  const moveLayer = (element, property, speed, limit) => {
-    if (!element) return;
-    const rect = element.getBoundingClientRect();
-    const offset = (rect.top + rect.height / 2 - window.innerHeight / 2) * speed;
-    const value = Math.max(-limit, Math.min(limit, -offset));
-    element.style.setProperty(property, `${value.toFixed(1)}px`);
-  };
-
-  const updateParallax = () => {
-    const scrollY = window.scrollY;
-    if (hero) hero.style.setProperty('--parallax', `${scrollY * 0.30}px`);
-    if (about) moveLayer(about.querySelector('.about-photo'), '--photo-shift', 0.16, 90);
-    serviceImages.forEach((img, index) => {
-      // Fotos: movimento exclusivamente vertical, com profundidade suave.
-      moveLayer(img, '--service-shift', index % 2 ? 0.19 : 0.23, 68);
-      img.style.transform = 'translate3d(0, var(--service-shift, 0px), 0) scale(1.10)';
-
-      // Descrição, título e preço: deslizam horizontalmente em direção oposta
-      // à composição da foto, alternando o sentido entre os cartões.
-      const card = img.closest('.service');
-      const copy = card && card.querySelector('.service-copy');
-      if (copy) {
-        const rect = card.getBoundingClientRect();
-        const progress = (rect.top + rect.height / 2 - window.innerHeight / 2) / Math.max(window.innerHeight, 1);
-        const direction = index % 2 ? -1 : 1;
-        const horizontal = Math.max(-58, Math.min(58, -progress * 92 * direction));
-        copy.style.transform = `translate3d(${horizontal.toFixed(1)}px, 0, 0)`;
-      }
+  if (!hasGSAP || reduceMotion) {
+    // Fallback acessível: conteúdo permanece visível mesmo sem carregar GSAP.
+    document.querySelectorAll('.section-head,.about-copy,.policy-item,.service,.gallery-grid figure').forEach(el => {
+      el.style.opacity = '1';
+      el.style.transform = 'none';
     });
-    galleryImages.forEach((img, index) => {
-      moveLayer(img, '--gallery-shift', index % 2 ? 0.10 : 0.16, 48);
+    return;
+  }
+
+  gsap.registerPlugin(ScrollTrigger);
+  gsap.defaults({ ease: 'power3.out' });
+
+  // Entrada cinematográfica do topo: tipografia em sequência e imagem em profundidade.
+  const intro = gsap.timeline({ defaults: { duration: 1.05 } });
+  intro.from('.hero-content .eyebrow', { y: 24, opacity: 0, duration: .75 })
+       .from('.hero h1', { y: 54, opacity: 0, duration: 1.15 }, '-=.42')
+       .from('.hero-content .line', { scaleX: 0, transformOrigin: 'left center', duration: .7 }, '-=.65')
+       .from('.hero-content p,.hero-content .cta', { y: 22, opacity: 0, stagger: .13, duration: .7 }, '-=.48');
+
+  // Parallax de fundo do hero e da fotografia Sobre, sincronizado com a rolagem.
+  gsap.to('.hero:before', {
+    yPercent: 22, ease: 'none',
+    scrollTrigger: { trigger: '.hero', start: 'top top', end: 'bottom top', scrub: 1.1 }
+  });
+  if (document.querySelector('.about-photo img')) {
+    gsap.fromTo('.about-photo img', { yPercent: -7, scale: 1.08 }, {
+      yPercent: 7, scale: 1.08, ease: 'none',
+      scrollTrigger: { trigger: '.about', start: 'top bottom', end: 'bottom top', scrub: 1.15 }
     });
-    if (comfort) moveLayer(comfort, '--comfort-shift', 0.18, 95);
-    if (serviceHead) {
-      const rect = serviceHead.getBoundingClientRect();
-      const drift = Math.max(-18, Math.min(18, (window.innerHeight / 2 - (rect.top + rect.height / 2)) * .045));
-      serviceHead.style.setProperty('--heading-drift', `${drift.toFixed(1)}px`);
+  }
+
+  // Revelações suaves com ScrollTrigger. Stagger dá ritmo sem competir com o conteúdo.
+  gsap.utils.toArray('.section-head, .about-copy, .policy-item, .gallery-grid figure').forEach((el, i) => {
+    gsap.fromTo(el, { y: 34, autoAlpha: 0 }, {
+      y: 0, autoAlpha: 1, duration: .9, delay: (i % 3) * .035,
+      scrollTrigger: { trigger: el, start: 'top 88%', once: true }
+    });
+  });
+
+  // Fotos dos serviços: parallax vertical. Texto/preço: parallax horizontal oposto.
+  gsap.utils.toArray('.service').forEach((card, index) => {
+    const photo = card.querySelector('img');
+    const copy = card.querySelector('.service-copy');
+    const direction = index % 2 === 0 ? 1 : -1;
+    if (photo) {
+      gsap.fromTo(photo, { yPercent: -9, scale: 1.12 }, {
+        yPercent: 9, scale: 1.12, ease: 'none',
+        scrollTrigger: { trigger: card, start: 'top bottom', end: 'bottom top', scrub: 1.05 }
+      });
     }
-    ticking = false;
-  };
-
-  window.addEventListener('scroll', () => {
-    if (!ticking) {
-      requestAnimationFrame(updateParallax);
-      ticking = true;
+    if (copy) {
+      gsap.fromTo(copy, { x: 48 * direction, autoAlpha: .72 }, {
+        x: -48 * direction, autoAlpha: 1, ease: 'none',
+        scrollTrigger: { trigger: card, start: 'top bottom', end: 'bottom top', scrub: 1.05 }
+      });
     }
-  }, { passive: true });
-  window.addEventListener('resize', updateParallax, { passive: true });
-  updateParallax();
-}
+    gsap.fromTo(card, { y: 30, autoAlpha: 0 }, {
+      y: 0, autoAlpha: 1, duration: .85,
+      scrollTrigger: { trigger: card, start: 'top 88%', once: true }
+    });
+  });
 
-// Cada serviço abre o WhatsApp com o nome e o preço do estilo selecionado.
-const whatsappNumber = '5514997584936';
-document.querySelectorAll('.select-style').forEach(link => {
-  const service = link.dataset.service || 'estilo escolhido';
-  const price = link.dataset.price || '';
-  const message = `Quero agendar um horário para este estilo: ${service}${price ? ` (valor: ${price})` : ''}.`;
-  link.href = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
-  link.target = '_blank';
-  link.rel = 'noopener noreferrer';
+  // Galeria com profundidade individual, mantendo os cantos arredondados.
+  gsap.utils.toArray('.gallery-grid figure img').forEach((img, index) => {
+    gsap.fromTo(img, { yPercent: index % 2 ? -5 : 5, scale: 1.08 }, {
+      yPercent: index % 2 ? 5 : -5, scale: 1.08, ease: 'none',
+      scrollTrigger: { trigger: img.closest('figure'), start: 'top bottom', end: 'bottom top', scrub: 1.2 }
+    });
+  });
+
+  // Camada de fundo da seção final e pequeno refinamento da navegação.
+  gsap.to('.comfort:before', {
+    yPercent: 12, ease: 'none',
+    scrollTrigger: { trigger: '.comfort', start: 'top bottom', end: 'bottom top', scrub: 1.2 }
+  });
+  gsap.from('.topbar', { y: -18, autoAlpha: 0, duration: .8, delay: .15 });
+
+  // Recalcula posições após carregar imagens grandes e fontes.
+  window.addEventListener('load', () => ScrollTrigger.refresh(), { once: true });
 });
-
-document.querySelectorAll('.nav a').forEach(a =>
-  a.addEventListener('click', () => document.querySelector('.nav').classList.remove('open'))
-);
-
 </script>
 </body></html>
